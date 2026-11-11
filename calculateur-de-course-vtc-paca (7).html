@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculateur de course – VTC PACA</title>
+<style>
+  :root {
+    --nuit: #0d1b2e; --nuit2: #14263f; --or: #d4a94e; --or-clair: #eecf8a;
+    --ivoire: #f7f3ea; --texte: #e9e4d8; --rouge: #b23a3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: linear-gradient(165deg, var(--nuit), var(--nuit2) 60%, #1b3350);
+    min-height: 100vh; color: var(--texte);
+    display: flex; justify-content: center; padding: 28px 16px;
+  }
+  .app { width: 100%; max-width: 560px; }
+  header { text-align: center; margin-bottom: 22px; }
+  .marque { font-size: 34px; font-weight: bold; letter-spacing: 5px; color: var(--ivoire); }
+  .marque span { color: var(--or); }
+  .sous-titre { font-style: italic; color: var(--or-clair); margin-top: 6px; font-size: 14px; }
+  .carte {
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(212,169,78,.35);
+    border-radius: 14px; padding: 22px; margin-bottom: 16px;
+  }
+  .champ { position: relative; margin-bottom: 16px; }
+  .champ label { display: block; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--or-clair); margin-bottom: 6px; }
+  .champ input {
+    width: 100%; padding: 12px 14px; font-size: 16px;
+    background: rgba(0,0,0,.25); color: var(--ivoire);
+    border: 1px solid rgba(212,169,78,.4); border-radius: 10px; outline: none;
+    font-family: inherit;
+  }
+  .champ input:focus { border-color: var(--or); }
+  .suggestions {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 10;
+    background: #10233c; border: 1px solid rgba(212,169,78,.5);
+    border-radius: 0 0 10px 10px; max-height: 210px; overflow-y: auto; display: none;
+  }
+  .suggestions div { padding: 9px 14px; font-size: 14px; cursor: pointer; }
+  .suggestions div:hover, .suggestions .sel { background: rgba(212,169,78,.25); color: var(--ivoire); }
+  .options { display: flex; flex-wrap: wrap; gap: 10px; }
+  .opt {
+    padding: 9px 16px; border-radius: 20px; cursor: pointer; user-select: none;
+    border: 1px solid rgba(212,169,78,.4); font-size: 14px; transition: all .15s;
+  }
+  .opt.on { background: var(--or); color: var(--nuit); font-weight: bold; }
+  .resultat { text-align: center; }
+  .erreur { color: var(--rouge); font-style: italic; font-size: 14px; }
+  .prix {
+    font-size: 46px; font-weight: bold; color: var(--or-clair);
+    margin: 6px 0 2px; letter-spacing: 1px;
+  }
+  .detail { font-size: 13px; color: var(--texte); line-height: 1.7; }
+  .detail strong { color: var(--or-clair); }
+  .conseille { margin-top: 10px; font-size: 14px; font-style: italic; color: var(--ivoire); }
+  .mention { text-align: center; font-size: 10px; color: rgba(233,228,216,.45); margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="marque">VTC <span>PACA</span></div>
+    <div class="sous-titre">Calculateur de tarif de course · Région PACA</div>
+  </header>
+
+  <div class="carte">
+    <div class="champ">
+      <label>Départ</label>
+      <input id="depart" type="text" placeholder="Ville, aéroport ou gare…" autocomplete="off" />
+      <div class="suggestions" id="sug-depart"></div>
+    </div>
+    <div class="champ">
+      <label>Arrivée</label>
+      <input id="arrivee" type="text" placeholder="Ville, aéroport ou gare…" autocomplete="off" />
+      <div class="suggestions" id="sug-arrivee"></div>
+    </div>
+    <div class="options">
+      <div class="opt on" data-grp="moment" data-val="jour">☀️ Jour</div>
+      <div class="opt" data-grp="moment" data-val="nuit">🌙 Nuit (+25 %)</div>
+      <div class="opt on" data-grp="vehicule" data-val="berline">🚗 Berline</div>
+      <div class="opt" data-grp="vehicule" data-val="van">🚐 Van (+50 %)</div>
+    </div>
+  </div>
+
+  <div class="carte resultat">
+    <div class="erreur" id="erreur"></div>
+    <div id="resultat" style="display:none">
+      <div class="prix" id="prix"></div>
+      <div class="detail" id="detail"></div>
+      <div class="conseille" id="conseille"></div>
+    </div>
+  </div>
+
+  <div class="mention">946 communes PACA intégrées · Recherche par adresse (rue, lieu) via la Base Adresse Nationale : nécessite une connexion internet et de télécharger le fichier · Tarifs modifiables dans les réglages · EURL VTCPACA.CHRISTOPHE</div>
+</div>
+
+<script>
+/* ===== RÉGLAGES TARIFAIRES (modifiables) ===== */
+const TARIFS = {
+  priseEnCharge: 5,    // € de base
+  prixKmJour: 1.5,     // € / km en journée
+  majorationNuit: 1.25,// +25 % la nuit
+  majorationVan: 1.5,  // +50 % en van
+  facteurRoute: 1.3,   // distance routière estimée
+  courseMin: 18,       // € minimum (courses courtes < 15 km)
+  seuilPetiteCourse: 15 // km
+};
+
+/* ===== BASE : 946 communes PACA + lieux clés ===== */
+const COMMUNES = [["Aiglun",44.0632,6.1413],["Allemagne-en-Provence",43.7921,6.0257],["Allons",43.9769,6.5929],["Allos",44.269,6.6304],["Angles",43.9442,6.5531],["Annot",43.9631,6.6631],["Archail",44.115,6.3309],["Aubenas-les-Alpes",43.9359,5.6757],["Aubignosc",44.1211,5.9542],["Authon",44.2475,6.1442],["Auzet",44.3041,6.3169],["Banon",44.0244,5.6496],["Barcelonnette",44.3751,6.6463],["Barles",44.2815,6.2532],["Barras",44.0949,6.0987],["Barrême",43.9467,6.386],["Bayons",44.3233,6.1832],["Beaujeu",44.2144,6.3714],["Beauvezer",44.1454,6.6051],["Bellaffaire",44.4074,6.1947],["Bevons",44.1753,5.8772],["Beynes",43.9802,6.2422],["Blieux",43.8772,6.3671],["Bras-d'Asse",43.9284,6.1278],["Braux",43.9902,6.6982],["Ubaye-Serre-Ponçon",44.4447,6.319],["La Brillanne",43.93,5.8822],["Brunet",43.8854,6.0256],["Le Brusquet",44.1725,6.3036],["Le Caire",44.3776,6.0706],["Castellane",43.8485,6.4871],["Le Castellard-Mélan",44.1995,6.135],["Le Castellet",43.9218,5.9798],["Castellet-lès-Sausses",44.0442,6.7436],["Val-de-Chalvagne",43.9036,6.7745],["Céreste-en-Luberon",43.853,5.5883],["Le Chaffaut-Saint-Jurson",44.025,6.1459],["Champtercier",44.0977,6.145],["Château-Arnoux-Saint-Auban",44.0801,5.9942],["Châteaufort",44.2762,6.0263],["Châteauneuf-Miravail",44.1521,5.7142],["Châteauneuf-Val-Saint-Donat",44.0951,5.9289],["Châteauredon",44.0264,6.2239],["Chaudon-Norante",43.9884,6.3208],["Clamensane",44.3301,6.0784],["Claret",44.3728,5.9662],["Clumanc",44.022,6.3783],["Colmars",44.1602,6.6585],["La Condamine-Châtelard",44.4678,6.7054],["Corbières-en-Provence",43.7593,5.7481],["Cruis",44.0845,5.8397],["Curbans",44.4132,6.0189],["Curel",44.1765,5.6717],["Dauphin",43.8947,5.7765],["Demandolx",43.8685,6.5768],["Digne-les-Bains",44.0954,6.2495],["Draix",44.1331,6.375],["Enchastrayes",44.3684,6.7129],["Entrages",44.0398,6.2732],["Entrepierres",44.195,6.0254],["Entrevaux",43.9522,6.8067],["Entrevennes",43.9393,6.0366],["L'Escale",44.0777,6.0363],["Esparron-de-Verdon",43.74,5.9948],["Estoublon",43.9487,6.2004],["Faucon-du-Caire",44.3952,6.0998],["Faucon-de-Barcelonnette",44.4137,6.684],["Fontienne",44.0076,5.7897],["Forcalquier",43.9582,5.7842],["Le Fugeret",44.0183,6.6627],["Ganagobie",44.0026,5.9113],["La Garde",43.8256,6.5662],["Gigors",44.4243,6.1422],["Gréoux-les-Bains",43.7628,5.8597],["L'Hospitalet",44.1068,5.7078],["Jausiers",44.3795,6.7745],["La Javie",44.197,6.3183],["Lambruisse",44.0484,6.4538],["Lardiers",44.0846,5.7228],["Le Lauzet-Ubaye",44.4255,6.4052],["Limans",43.986,5.7188],["Lurs",43.9674,5.878],["Majastres",43.8937,6.2773],["Malijai",44.0392,6.052],["Mallefougasse-Augès",44.0766,5.8998],["Mallemoisson",44.0432,6.1201],["Mane",43.9426,5.7419],["Manosque",43.8293,5.7896],["Marcoux",44.1287,6.2818],["Méailles",44.0432,6.6475],["Les Mées",43.9956,5.9679],["Melve",44.3546,5.9895],["Val d'Oronaye",44.43,6.8559],["Mézel",43.9979,6.1799],["Mirabeau",44.0608,6.0826],["Mison",44.2629,5.8676],["Montagnac-Montpezat",43.7631,6.0944],["Montclar",44.4004,6.3428],["Montfort",44.0551,5.9505],["Montfuron",43.8289,5.6901],["Montjustin",43.8436,5.6584],["Montlaux",44.0405,5.8443],["Montsalier",44.0232,5.5896],["Moriez",43.963,6.462],["La Motte-du-Caire",44.3412,6.0406],["Moustiers-Sainte-Marie",43.837,6.2289],["La Mure-Argens",44.0186,6.5295],["Nibles",44.2882,6.0095],["Niozelles",43.933,5.8445],["Noyers-sur-Jabron",44.1644,5.8078],["Les Omergues",44.1513,5.5933],["Ongles",44.039,5.7249],["Oppedette",43.9304,5.5906],["Oraison",43.9116,5.9232],["La Palud-sur-Verdon",43.801,6.323],["Peipin",44.1407,5.9447],["Peyroules",43.8168,6.6495],["Peyruis",44.0351,5.9306],["Piégut",44.4546,6.1321],["Pierrerue",43.9645,5.8394],["Pierrevert",43.808,5.725],["Pontis",44.4984,6.3704],["Prads-Haute-Bléone",44.2135,6.4598],["Puimichel",43.9803,6.0245],["Puimoisson",43.8687,6.1216],["Quinson",43.7048,6.0236],["Redortiers",44.0982,5.6111],["Reillanne",43.8884,5.6565],["Méolans-Revel",44.3688,6.4988],["Revest-des-Brousses",43.9805,5.6742],["Revest-du-Bion",44.1024,5.5439],["Revest-Saint-Martin",44.0228,5.8258],["Riez",43.8358,6.0849],["La Robine-sur-Galabre",44.1883,6.2328],["La Rochegiron",44.1061,5.6654],["La Rochette",43.9097,6.875],["Rougon",43.7866,6.3951],["Roumoules",43.8196,6.1526],["Saint-André-les-Alpes",43.9711,6.5043],["Saint-Benoît",43.96,6.7282],["Sainte-Croix-à-Lauze",43.9054,5.6152],["Sainte-Croix-du-Verdon",43.762,6.1502],["Hautes-Duyes",44.1969,6.1719],["Saint-Étienne-les-Orgues",44.0648,5.7798],["Saint-Geniez",44.2368,6.0526],["Saint-Jacques",43.9759,6.369],["Saint-Jeannet",43.9778,6.1119],["Saint-Julien-d'Asse",43.9386,6.071],["Saint-Julien-du-Verdon",43.9122,6.5472],["Saint-Jurs",43.8972,6.1987],["Saint-Laurent-du-Verdon",43.721,6.0702],["Saint-Lions",43.978,6.4045],["Saint-Maime",43.8981,5.7988],["Saint-Martin-de-Brômes",43.782,5.9622],["Saint-Martin-les-Eaux",43.8693,5.7429],["Saint-Martin-lès-Seyne",44.3858,6.2527],["Saint-Michel-l'Observatoire",43.9135,5.7276],["Saint-Paul-sur-Ubaye",44.5647,6.8188],["Saint-Pierre",43.9114,6.922],["Saint-Pons",44.416,6.6163],["Sainte-Tulle",43.7822,5.7662],["Saint-Vincent-sur-Jabron",44.1674,5.7425],["Salignac",44.1546,5.9889],["Saumane",44.0829,5.6808],["Sausses",44.013,6.7861],["Selonnet",44.3713,6.299],["Senez",43.9229,6.3645],["Seyne",44.3435,6.3802],["Sigonce",44.0087,5.8505],["Sigoyer",44.3231,5.9648],["Simiane-la-Rotonde",44.0047,5.5659],["Sisteron",44.1993,5.9276],["Soleilhas",43.8611,6.6521],["Sourribes",44.1582,6.0433],["Tartonne",44.0803,6.3798],["Thèze",44.3303,5.9248],["Thoard",44.1495,6.1258],["Thorame-Basse",44.1019,6.4854],["Thorame-Haute",44.083,6.6152],["Les Thuiles",44.3917,6.5584],["Turriers",44.3934,6.1596],["Ubraye",43.9092,6.6862],["Uvernet-Fours",44.3202,6.6708],["Vachères",43.9489,5.6397],["Valavoire",44.2793,6.0787],["Valbelle",44.1398,5.8753],["Valensole",43.8386,5.9392],["Valernes",44.2561,5.9777],["Vaumeilh",44.289,5.9589],["Venterol",44.4399,6.0869],["Verdaches",44.2718,6.3432],["Vergons",43.9158,6.602],["Le Vernet",44.2762,6.4153],["Villars-Colmars",44.1952,6.5713],["Villemus",43.8627,5.7065],["Villeneuve",43.8848,5.8509],["Volonne",44.1232,6.0333],["Volx",43.8677,5.8252],["Abriès-Ristolas",44.7717,6.9717],["Aiguilles",44.7826,6.8768],["Ancelle",44.6195,6.2288],["L'Argentière-la-Bessée",44.7835,6.4716],["Arvieux",44.7623,6.7181],["Aspremont",44.4934,5.7154],["Aspres-lès-Corps",44.8145,6.003],["Aspres-sur-Buëch",44.5565,5.7695],["Avançon",44.5359,6.191],["Baratier",44.5051,6.504],["Barcillonnette",44.4333,5.8973],["Barret-sur-Méouge",44.2591,5.7244],["La Bâtie-Montsaléon",44.4565,5.7483],["La Bâtie-Neuve",44.5817,6.2151],["La Bâtie-Vieille",44.5519,6.1523],["La Beaume",44.5477,5.6518],["Le Bersac",44.4078,5.7537],["Bréziers",44.4163,6.2184],["Briançon",44.8995,6.6536],["Valdoule",44.4627,5.5309],["Buissard",44.6587,6.1457],["Ceillac",44.6544,6.8072],["Cervières",44.8586,6.7746],["Chabestan",44.4793,5.7832],["Chabottes",44.6485,6.1663],["Champcella",44.7247,6.5236],["Champoléon",44.7416,6.2741],["Chanousse",44.3648,5.6592],["Châteauneuf-d'Oze",44.503,5.9028],["Châteauroux-les-Alpes",44.6424,6.4834],["Châteauvieux",44.4838,6.0527],["Château-Ville-Vieille",44.7617,6.811],["Aubessagne",44.739,6.0311],["Chorges",44.5473,6.287],["Crévoux",44.5302,6.6191],["Crots",44.4985,6.4571],["Embrun",44.5806,6.475],["Éourres",44.2113,5.7349],["L'Épine",44.4319,5.6095],["Esparron",44.4597,5.8875],["Espinasses",44.4902,6.2371],["Étoile-Saint-Cyrice",44.3217,5.6426],["Eygliers",44.6962,6.6621],["Garde-Colombe",44.3602,5.7865],["La Fare-en-Champsaur",44.6666,6.06],["La Faurie",44.5751,5.7378],["Forest-Saint-Julien",44.6316,6.1433],["Fouillouse",44.45,5.9992],["Freissinières",44.7283,6.4595],["La Freissinouse",44.5361,6.0054],["Furmeyer",44.5379,5.8751],["Gap",44.5797,6.0616],["Le Glaizil",44.7483,5.9766],["La Grave",45.061,6.2886],["La Chapelle-en-Valgaudémar",44.8069,6.244],["Guillestre",44.6596,6.6983],["La Haute-Beaume",44.5707,5.6299],["Jarjayes",44.5038,6.1132],["Laragne-Montéglin",44.3372,5.8197],["Lardier-et-Valença",44.4372,5.9721],["Laye",44.6445,6.0692],["Lazer",44.3488,5.851],["Lettret",44.4833,6.0712],["Manteyer",44.5317,5.9553],["Méreuil",44.385,5.7133],["Molines-en-Queyras",44.7123,6.8975],["Monêtier-Allemont",44.3917,5.9317],["Le Monêtier-les-Bains",44.9992,6.4709],["Montbrand",44.5952,5.6699],["Montclus",44.4119,5.6673],["Mont-Dauphin",44.6685,6.625],["Montgardin",44.5419,6.2345],["Montgenèvre",44.9403,6.7216],["Montjay",44.3668,5.6194],["Montmaur",44.5774,5.8707],["Montrond",44.3878,5.7453],["La Motte-en-Champsaur",44.74,6.1211],["Moydans",44.4084,5.5083],["Neffes",44.499,6.0238],["Névache",45.0487,6.616],["Nossage-et-Bénévent",44.3103,5.7554],["Le Noyer",44.7002,5.9995],["Orcières",44.6849,6.3532],["Orpierre",44.316,5.7071],["Les Orres",44.4883,6.5774],["Oze",44.5057,5.798],["Pelleautier",44.5052,5.9977],["Vallouise-Pelvoux",44.8646,6.4333],["La Piarre",44.4809,5.6458],["Le Poët",44.2756,5.9008],["Poligny",44.6858,6.0335],["Prunières",44.5456,6.3413],["Puy-Saint-André",44.8868,6.5637],["Puy-Saint-Eusèbe",44.5667,6.4129],["Puy-Saint-Pierre",44.8974,6.6047],["Puy-Saint-Vincent",44.8158,6.4617],["Puy-Sanières",44.5596,6.4389],["Rabou",44.6065,6.0067],["Rambaud",44.5496,6.1292],["Réallon",44.6163,6.3622],["Remollon",44.4739,6.1567],["Réotier",44.6788,6.5468],["Ribeyret",44.4123,5.5552],["Val Buëch-Méouge",44.2516,5.8338],["Risoul",44.6202,6.6242],["Rochebrune",44.4506,6.1962],["La Roche-de-Rame",44.7557,6.6215],["La Roche-des-Arnauds",44.59,5.9596],["La Rochette",44.5945,6.1473],["Rosans",44.4005,5.4581],["Rousset-Serre-Ponçon",44.4856,6.2684],["Saint-André-d'Embrun",44.5955,6.5792],["Saint-André-de-Rosans",44.3658,5.5168],["Saint-Apollinaire",44.5583,6.3559],["Saint-Auban-d'Oze",44.4874,5.8458],["Saint-Bonnet-en-Champsaur",44.692,6.0988],["Saint-Chaffrey",44.9373,6.5989],["Saint-Clément-sur-Durance",44.6523,6.554],["Sainte-Colombe",44.2887,5.675],["Saint-Crépin",44.7259,6.6291],["Dévoluy",44.6847,5.8917],["Saint-Étienne-le-Laus",44.5075,6.1616],["Saint-Firmin",44.7962,6.0204],["Saint-Jacques-en-Valgodemard",44.7773,6.0649],["Saint-Jean-Saint-Nicolas",44.6757,6.2301],["Saint-Julien-en-Beauchêne",44.6205,5.7214],["Saint-Julien-en-Champsaur",44.6726,6.1289],["Saint-Laurent-du-Cros",44.6371,6.1117],["Saint-Léger-les-Mélèzes",44.6476,6.2144],["Saint-Martin-de-Queyrières",44.8382,6.5843],["Saint-Maurice-en-Valgodemard",44.8034,6.1159],["Saint-Michel-de-Chaillol",44.6892,6.1683],["Saint-Pierre-d'Argençon",44.5204,5.6868],["Saint-Pierre-Avez",44.2488,5.7672],["Saint-Sauveur",44.5312,6.5321],["Saint-Véran",44.6843,6.8924],["Le Saix",44.4655,5.8402],["Saléon",44.3212,5.7769],["Salérans",44.2459,5.7041],["La Salle-les-Alpes",44.9571,6.5664],["La Saulce",44.4318,6.0108],["Le Sauze-du-Lac",44.4869,6.3209],["Savines-le-Lac",44.53,6.395],["Savournon",44.4234,5.7965],["Serres",44.4224,5.7142],["Sigottier",44.4601,5.6808],["Sigoyer",44.4801,5.9716],["Sorbiers",44.3615,5.57],["Tallard",44.4599,6.0485],["Théus",44.4863,6.1951],["Trescléoux",44.3522,5.7249],["Upaix",44.3208,5.8869],["Val-des-Prés",44.9399,6.657],["Valserres",44.4921,6.1354],["Vars",44.5907,6.7211],["Ventavon",44.3819,5.889],["Veynes",44.5599,5.8227],["Les Vigneaux",44.8246,6.5305],["Villar-d'Arêne",45.0031,6.3642],["Villar-Loubière",44.8364,6.1335],["Villar-Saint-Pancrace",44.8378,6.6483],["Vitrolles",44.4296,5.9485],["Aiglun",43.8552,6.9348],["Amirat",43.8973,6.8108],["Andon",43.7755,6.8211],["Antibes",43.5823,7.1048],["Ascros",43.9171,7.0159],["Aspremont",43.7772,7.2423],["Auribeau-sur-Siagne",43.6105,6.9118],["Auvare",44.0062,6.9133],["Bairols",43.9856,7.1174],["Le Bar-sur-Loup",43.6993,6.9674],["Beaulieu-sur-Mer",43.7081,7.3324],["Beausoleil",43.7471,7.4227],["Belvédère",44.0615,7.3612],["Bendejun",43.8309,7.2841],["Berre-les-Alpes",43.8342,7.3306],["Beuil",44.1176,6.9693],["Bézaudun-les-Alpes",43.8026,7.0908],["Biot",43.6273,7.0821],["Blausasc",43.7938,7.357],["La Bollène-Vésubie",43.9945,7.3749],["Bonson",43.8613,7.1786],["Bouyon",43.8272,7.125],["Breil-sur-Roya",43.9379,7.4996],["Briançonnet",43.8654,6.7325],["Le Broc",43.8146,7.1621],["Cabris",43.6602,6.8782],["Cagnes-sur-Mer",43.6712,7.1502],["Caille",43.7686,6.7544],["Cannes",43.5454,7.0152],["Le Cannet",43.5745,7.001],["Cantaron",43.7694,7.3147],["Cap-d'Ail",43.7256,7.4008],["Carros",43.785,7.1798],["Castagniers",43.79,7.2298],["Castellar",43.8227,7.4989],["Castillon",43.8371,7.4627],["Caussols",43.7387,6.9071],["Châteauneuf-Grasse",43.6626,6.9792],["Châteauneuf-Villevieille",43.8007,7.2951],["Châteauneuf-d'Entraunes",44.1584,6.8405],["Cipières",43.7665,6.9229],["Clans",44.003,7.1827],["Coaraze",43.8693,7.3014],["La Colle-sur-Loup",43.6869,7.0975],["Collongues",43.8934,6.8642],["Colomars",43.757,7.2212],["Conségudes",43.8395,7.0395],["Contes",43.8133,7.3263],["Courmes",43.7514,7.0196],["Coursegoules",43.7898,7.0384],["La Croix-sur-Roudoule",44.0032,6.871],["Cuébris",43.889,6.9955],["Daluis",44.0426,6.8045],["Drap",43.7587,7.3395],["Duranus",43.8954,7.2796],["Entraunes",44.2215,6.763],["L'Escarène",43.8303,7.3665],["Escragnolles",43.7236,6.7758],["Èze",43.7299,7.3566],["Falicon",43.7533,7.266],["Les Ferres",43.8424,7.0966],["Fontan",44.0213,7.5527],["Gars",43.8612,6.8202],["Gattières",43.769,7.1675],["La Gaude",43.7177,7.1605],["Gilette",43.8436,7.1602],["Gorbio",43.787,7.4476],["Gourdon",43.7266,6.9622],["Grasse",43.656,6.937],["Gréolières",43.8037,6.9296],["Guillaumes",44.1007,6.8673],["Ilonse",44.0319,7.0901],["Isola",44.1903,7.0835],["Lantosque",43.9787,7.3121],["Levens",43.8501,7.2358],["Lieuche",44.0001,7.0361],["Lucéram",43.8997,7.3506],["Malaussène",43.9146,7.1389],["Mandelieu-la-Napoule",43.5334,6.918],["Marie",44.0319,7.1668],["Le Mas",43.8388,6.8572],["Massoins",43.9552,7.1305],["Menton",43.7961,7.498],["Mouans-Sartoux",43.6192,6.9677],["Mougins",43.5931,7.0046],["Moulinet",43.9503,7.4128],["Les Mujouls",43.8728,6.8649],["Nice",43.7032,7.2528],["Opio",43.6574,7.0094],["Pégomas",43.5886,6.9213],["Peille",43.8043,7.4088],["Peillon",43.7727,7.3668],["La Penne",43.9202,6.9361],["Péone",44.1333,6.925],["Peymeinade",43.6289,6.8807],["Pierlas",44.035,7.0177],["Pierrefeu",43.8883,7.0743],["Puget-Rostang",44.0056,6.9333],["Puget-Théniers",43.9498,6.9049],["Revest-les-Roches",43.8823,7.1693],["Rigaud",43.9942,6.976],["Rimplas",44.0997,7.1449],["Roquebillière",44.0282,7.2885],["Roquebrune-Cap-Martin",43.7638,7.4576],["Roquefort-les-Pins",43.6723,7.0565],["Roquestéron",43.8696,7.0232],["La Roque-en-Provence",43.8494,6.9916],["La Roquette-sur-Siagne",43.5853,6.9475],["La Roquette-sur-Var",43.8328,7.2072],["Roubion",44.1121,7.0233],["Roure",44.1139,7.0603],["Le Rouret",43.6803,7.0081],["Sainte-Agnès",43.8046,7.4605],["Saint-André-de-la-Roche",43.7455,7.2875],["Saint-Antonin",43.9085,6.9739],["Saint-Auban",43.8319,6.7367],["Saint-Blaise",43.8132,7.2283],["Saint-Cézaire-sur-Siagne",43.6592,6.8049],["Saint-Dalmas-le-Selvage",44.281,6.8452],["Saint-Étienne-de-Tinée",44.2597,6.9252],["Saint-Jean-Cap-Ferrat",43.6883,7.3349],["Saint-Jeannet",43.7619,7.1477],["Saint-Laurent-du-Var",43.6865,7.1822],["Saint-Léger",44.0014,6.8189],["Saint-Martin-d'Entraunes",44.1453,6.7492],["Saint-Martin-du-Var",43.8168,7.2012],["Saint-Martin-Vésubie",44.0944,7.307],["Saint-Paul-de-Vence",43.6928,7.1196],["Saint-Sauveur-sur-Tinée",44.1163,7.1226],["Saint-Vallier-de-Thiey",43.6994,6.8516],["Sallagriffon",43.8805,6.9117],["Saorge",43.9935,7.5403],["Sauze",44.0862,6.7987],["Séranon",43.7655,6.6892],["Sigale",43.8742,6.9652],["Sospel",43.8872,7.4493],["Spéracèdes",43.652,6.8573],["Théoule-sur-Mer",43.499,6.9303],["Thiéry",43.9759,7.0365],["Le Tignet",43.6257,6.8538],["Toudon",43.8857,7.1094],["Touët-de-l'Escarène",43.8516,7.3799],["Touët-sur-Var",43.9433,7.0091],["La Tour",43.9645,7.196],["Tourette-du-Château",43.8812,7.1365],["Tournefort",43.942,7.1596],["Tourrette-Levens",43.7882,7.275],["Tourrettes-sur-Loup",43.718,7.0353],["La Trinité",43.7415,7.3413],["La Turbie",43.7462,7.3973],["Utelle",43.9392,7.2458],["Valbonne",43.6267,7.0291],["Valdeblore",44.1152,7.1949],["Valderoure",43.7943,6.7038],["Vallauris",43.5787,7.0604],["Venanson",44.0412,7.2386],["Vence",43.7373,7.0995],["Villars-sur-Var",43.9564,7.076],["Villefranche-sur-Mer",43.7081,7.3243],["Villeneuve-d'Entraunes",44.1301,6.774],["Villeneuve-Loubet",43.647,7.0984],["La Brigue",44.0897,7.6496],["Tende",44.0971,7.5499],["Aix-en-Provence",43.536,5.3879],["Allauch",43.3522,5.5103],["Alleins",43.7098,5.1558],["Arles",43.5441,4.6513],["Aubagne",43.2904,5.5643],["Aureille",43.6983,4.942],["Auriol",43.3594,5.6559],["Aurons",43.6722,5.149],["La Barben",43.6189,5.2123],["Barbentane",43.891,4.7454],["Les Baux-de-Provence",43.7491,4.805],["Beaurecueil",43.5197,5.5481],["Belcodène",43.4231,5.5846],["Berre-l'Étang",43.4976,5.1596],["Bouc-Bel-Air",43.4442,5.4118],["La Bouilladisse",43.3942,5.626],["Boulbon",43.8721,4.6962],["Cabannes",43.8596,4.9592],["Cabriès",43.453,5.3467],["Cadolive",43.3943,5.5303],["Carry-le-Rouet",43.3462,5.1587],["Cassis",43.2185,5.5503],["Ceyreste",43.2215,5.6354],["Charleval",43.7205,5.2461],["Châteauneuf-le-Rouge",43.4892,5.5691],["Châteauneuf-les-Martigues",43.3904,5.1464],["Châteaurenard",43.8829,4.8344],["La Ciotat",43.1882,5.6175],["Cornillon-Confoux",43.5762,5.0753],["Cuges-les-Pins",43.2822,5.7099],["La Destrousse",43.3788,5.5984],["Éguilles",43.5662,5.3177],["Ensuès-la-Redonne",43.3554,5.188],["Eygalières",43.7638,4.9554],["Eyguières",43.7005,5.0132],["Eyragues",43.8414,4.8423],["La Fare-les-Oliviers",43.5541,5.2051],["Fontvieille",43.7278,4.7128],["Fos-sur-Mer",43.4545,4.8979],["Fuveau",43.4575,5.5537],["Gardanne",43.4585,5.4857],["Gémenos",43.2969,5.6518],["Gignac-la-Nerthe",43.3873,5.2334],["Grans",43.6172,5.0431],["Graveson",43.8532,4.7686],["Gréasque",43.4252,5.547],["Istres",43.5455,4.9477],["Jouques",43.6289,5.6605],["Lamanon",43.7073,5.0898],["Lambesc",43.6636,5.2493],["Lançon-Provence",43.5728,5.1725],["Maillane",43.8231,4.7832],["Mallemort",43.728,5.1849],["Marignane",43.4218,5.2178],["Marseille",43.2803,5.3806],["Martigues",43.3839,5.0451],["Mas-Blanc-des-Alpilles",43.7887,4.7637],["Maussane-les-Alpilles",43.7158,4.838],["Meyrargues",43.6229,5.5321],["Meyreuil",43.488,5.5002],["Saint-Pierre-de-Mézoargues",43.8616,4.6578],["Mimet",43.4123,5.5001],["Miramas",43.5841,5.0148],["Mollégès",43.8034,4.9466],["Mouriès",43.7053,4.8781],["Noves",43.86,4.9018],["Orgon",43.7844,5.0294],["Paradou",43.7071,4.7756],["Pélissanne",43.63,5.1628],["La Penne-sur-Huveaune",43.2778,5.5185],["Les Pennes-Mirabeau",43.4005,5.3222],["Peynier",43.4375,5.6204],["Peypin",43.3834,5.57],["Peyrolles-en-Provence",43.6262,5.5763],["Plan-de-Cuques",43.3642,5.4639],["Plan-d'Orgon",43.818,5.0011],["Port-de-Bouc",43.4207,4.9993],["Port-Saint-Louis-du-Rhône",43.4066,4.826],["Puyloubier",43.5192,5.6718],["Le Puy-Sainte-Réparade",43.6533,5.4401],["Rognac",43.4995,5.233],["Rognes",43.6672,5.3546],["Rognonas",43.8992,4.7948],["La Roque-d'Anthéron",43.7166,5.3165],["Roquefort-la-Bédoule",43.2518,5.6297],["Roquevaire",43.3452,5.598],["Rousset",43.4869,5.6202],["Le Rove",43.3622,5.2498],["Saint-Andiol",43.8327,4.9498],["Saint-Antonin-sur-Bayon",43.5191,5.5972],["Saint-Cannat",43.6155,5.3108],["Saint-Chamas",43.5414,5.072],["Saint-Estève-Janson",43.6926,5.3891],["Saint-Étienne-du-Grès",43.787,4.7352],["Saint-Marc-Jaumegarde",43.5567,5.5202],["Saintes-Maries-de-la-Mer",43.4958,4.4374],["Saint-Martin-de-Crau",43.6074,4.8688],["Saint-Mitre-les-Remparts",43.4565,5.0152],["Saint-Paul-lès-Durance",43.6869,5.748],["Saint-Rémy-de-Provence",43.7815,4.8455],["Saint-Savournin",43.4025,5.5321],["Saint-Victoret",43.4121,5.2508],["Salon-de-Provence",43.643,5.049],["Sausset-les-Pins",43.3469,5.1158],["Sénas",43.7402,5.073],["Septèmes-les-Vallons",43.3931,5.3828],["Simiane-Collongue",43.4154,5.4359],["Tarascon",43.7972,4.6852],["Le Tholonet",43.5218,5.5053],["Trets",43.4452,5.7137],["Vauvenargues",43.5619,5.6207],["Velaux",43.5215,5.246],["Venelles",43.5951,5.4991],["Ventabren",43.5446,5.3045],["Vernègues",43.6841,5.1892],["Verquières",43.8377,4.9192],["Vitrolles",43.4509,5.2656],["Coudoux",43.5587,5.2559],["Carnoux-en-Provence",43.259,5.5655],["Les Adrets-de-l'Estérel",43.5385,6.8177],["Aiguines",43.7365,6.3197],["Ampus",43.6218,6.3683],["Les Arcs",43.4533,6.4862],["Artignosc-sur-Verdon",43.6991,6.1087],["Artigues",43.5802,5.8],["Aups",43.6283,6.2139],["Bagnols-en-Forêt",43.5328,6.7089],["Bandol",43.147,5.7488],["Bargème",43.7279,6.5697],["Bargemon",43.6344,6.5439],["Barjols",43.5484,5.973],["La Bastide",43.7464,6.6327],["Baudinard-sur-Verdon",43.714,6.1351],["Bauduen",43.7203,6.2048],["Le Beausset",43.205,5.8239],["Belgentier",43.2416,5.9972],["Besse-sur-Issole",43.339,6.1839],["Bormes-les-Mimosas",43.1575,6.3615],["Le Bourguet",43.7798,6.5017],["Bras",43.4723,5.9558],["Brenon",43.7691,6.5365],["Brignoles",43.3878,6.0759],["Brue-Auriac",43.5259,5.9402],["Cabasse",43.4275,6.2303],["La Cadière-d'Azur",43.2026,5.7231],["Callas",43.5687,6.5735],["Callian",43.6069,6.7601],["Camps-la-Source",43.3719,6.1261],["Le Cannet-des-Maures",43.3695,6.3703],["Carcès",43.4738,6.1752],["Carnoules",43.2921,6.1978],["Carqueiranne",43.0975,6.0714],["Le Castellet",43.2148,5.7561],["Cavalaire-sur-Mer",43.1797,6.5215],["La Celle",43.3843,6.0016],["Châteaudouble",43.6259,6.442],["Châteauvert",43.4992,6.0088],["Châteauvieux",43.7874,6.5959],["Claviers",43.5998,6.5845],["Cogolin",43.2406,6.5319],["Collobrières",43.2446,6.3454],["Comps-sur-Artuby",43.7075,6.506],["Correns",43.4884,6.0543],["Cotignac",43.5246,6.1436],["La Crau",43.1706,6.0923],["La Croix-Valmer",43.1909,6.588],["Cuers",43.2429,6.0654],["Draguignan",43.5346,6.4651],["Entrecasteaux",43.5085,6.2324],["Esparron-de-Pallières",43.5881,5.851],["Évenos",43.1876,5.8702],["La Farlède",43.164,6.0414],["Fayence",43.6118,6.6762],["Figanières",43.5642,6.4915],["Flassans-sur-Issole",43.372,6.2169],["Flayosc",43.5441,6.3577],["Forcalqueiret",43.3357,6.0884],["Fox-Amphoux",43.5944,6.1165],["Fréjus",43.4553,6.7848],["La Garde",43.129,6.0162],["La Garde-Freinet",43.3251,6.4603],["Garéoult",43.3397,6.0426],["Gassin",43.2385,6.5876],["Ginasservis",43.6566,5.8393],["Gonfaron",43.3149,6.2978],["Grimaud",43.2822,6.5097],["Hyères",43.1139,6.2357],["Le Lavandou",43.1669,6.4015],["La Londe-les-Maures",43.1641,6.2417],["Lorgues",43.4734,6.3588],["Le Luc",43.3855,6.3107],["La Martre",43.7631,6.5914],["Les Mayons",43.3117,6.3621],["Mazaugues",43.3435,5.8899],["Méounes-lès-Montrieux",43.2699,5.979],["Moissac-Bellevue",43.6487,6.1666],["La Môle",43.2202,6.4835],["Mons",43.7041,6.7054],["Montauroux",43.5936,6.7993],["Montferrat",43.6336,6.4774],["Montfort-sur-Argens",43.486,6.1252],["Montmeyan",43.6574,6.0652],["La Motte",43.5091,6.5506],["Le Muy",43.468,6.5844],["Nans-les-Pins",43.3808,5.7874],["Néoules",43.2912,6.0267],["Ollières",43.5074,5.8141],["Ollioules",43.1385,5.8515],["Pierrefeu-du-Var",43.2351,6.1798],["Pignans",43.2997,6.2625],["Plan-d'Aups-Sainte-Baume",43.3336,5.7472],["Le Plan-de-la-Tour",43.337,6.5462],["Pontevès",43.5509,6.0687],["Pourcieux",43.4626,5.7894],["Pourrières",43.487,5.7432],["Le Pradet",43.0984,6.0214],["Puget-sur-Argens",43.4712,6.6861],["Puget-Ville",43.2809,6.1646],["Ramatuelle",43.2115,6.6449],["Régusse",43.663,6.122],["Le Revest-les-Eaux",43.1878,5.9453],["Rians",43.6026,5.734],["Riboux",43.3063,5.753],["Rocbaron",43.3062,6.0869],["Roquebrune-sur-Argens",43.4282,6.6525],["La Roquebrussanne",43.3384,5.9787],["La Roque-Esclapon",43.721,6.6479],["Rougiers",43.3869,5.8505],["Sainte-Anastasie-sur-Issole",43.3337,6.1227],["Saint-Cyr-sur-Mer",43.17,5.7055],["Saint-Julien",43.7045,5.9143],["Saint-Martin-de-Pallières",43.577,5.8869],["Sainte-Maxime",43.3584,6.6139],["Saint-Maximin-la-Sainte-Baume",43.4488,5.8603],["Saint-Paul-en-Forêt",43.5681,6.6822],["Saint-Raphaël",43.4582,6.8483],["Saint-Tropez",43.2619,6.6638],["Saint-Zacharie",43.3749,5.7164],["Salernes",43.5646,6.2379],["Les Salles-sur-Verdon",43.767,6.2042],["Sanary-sur-Mer",43.1374,5.7951],["Seillans",43.6326,6.6024],["Seillons-Source-d'Argens",43.5156,5.8775],["La Seyne-sur-Mer",43.0837,5.8789],["Signes",43.2759,5.8498],["Sillans-la-Cascade",43.565,6.1549],["Six-Fours-les-Plages",43.0843,5.8079],["Solliès-Pont",43.1895,6.0625],["Solliès-Toucas",43.2097,5.9836],["Solliès-Ville",43.1804,6.0232],["Tanneron",43.5732,6.8538],["Taradeau",43.4657,6.4283],["Tavernes",43.6009,6.0232],["Le Thoronet",43.4585,6.2905],["Toulon",43.1364,5.9334],["Tourrettes",43.609,6.7252],["Tourtour",43.594,6.3098],["Tourves",43.4108,5.9281],["Trans-en-Provence",43.5025,6.4869],["Trigance",43.7365,6.438],["Le Val",43.4468,6.0569],["La Valette-du-Var",43.1484,5.9893],["Varages",43.5924,5.9435],["La Verdière",43.6529,5.9374],["Vérignon",43.658,6.2653],["Vidauban",43.4071,6.4599],["Villecroze",43.5649,6.2855],["Vinon-sur-Verdon",43.7214,5.8017],["Vins-sur-Caramy",43.432,6.1495],["Rayol-Canadel-sur-Mer",43.1664,6.4744],["Saint-Mandrier-sur-Mer",43.0762,5.9272],["Saint-Antonin-du-Var",43.5071,6.2935],["Althen-des-Paluds",44.0055,4.9585],["Ansouis",43.7338,5.4682],["Apt",43.8815,5.3814],["Aubignan",44.0962,5.0331],["Aurel",44.1357,5.3906],["Auribeau",43.8275,5.4444],["Avignon",43.9416,4.8333],["Le Barroux",44.1591,5.1046],["La Bastide-des-Jourdans",43.7954,5.6443],["La Bastidonne",43.6927,5.5791],["Le Beaucet",43.9761,5.1341],["Beaumes-de-Venise",44.1224,5.0279],["Beaumettes",43.8632,5.202],["Beaumont-de-Pertuis",43.7372,5.6978],["Beaumont-du-Ventoux",44.182,5.2197],["Bédarrides",44.0478,4.9029],["Bédoin",44.1337,5.2342],["Blauvac",44.0356,5.2418],["Bollène",44.2885,4.751],["Bonnieux",43.8327,5.3172],["Brantes",44.1861,5.3315],["Buisson",44.2759,4.9985],["Buoux",43.8207,5.3745],["Cabrières-d'Aigues",43.7882,5.4891],["Cabrières-d'Avignon",43.9034,5.1494],["Cadenet",43.7299,5.386],["Caderousse",44.1155,4.746],["Cairanne",44.2277,4.9339],["Camaret-sur-Aigues",44.1551,4.8911],["Caromb",44.11,5.1078],["Carpentras",44.0629,5.0584],["Caseneuve",43.8859,5.4833],["Castellet-en-Luberon",43.8336,5.4876],["Caumont-sur-Durance",43.8813,4.955],["Cavaillon",43.8485,5.0333],["Châteauneuf-de-Gadagne",43.9307,4.9435],["Châteauneuf-du-Pape",44.0602,4.8263],["Cheval-Blanc",43.7875,5.1204],["Courthézon",44.0876,4.8868],["Crestet",44.2112,5.0859],["Crillon-le-Brave",44.1187,5.152],["Cucuron",43.7801,5.4401],["Entraigues-sur-la-Sorgue",43.9959,4.9347],["Entrechaux",44.2238,5.1364],["Faucon",44.2524,5.1404],["Flassan",44.0995,5.2613],["Gargas",43.8939,5.3435],["Gignac",43.9283,5.526],["Gigondas",44.164,5.0153],["Gordes",43.9074,5.204],["Goult",43.8675,5.2448],["Grambois",43.7581,5.6022],["Grillon",44.3946,4.9355],["L'Isle-sur-la-Sorgue",43.9191,5.0588],["Jonquerettes",43.9496,4.9433],["Jonquières",44.1324,4.9144],["Joucas",43.9223,5.2522],["Lacoste",43.8236,5.2645],["Lafare",44.1535,5.0501],["Lagarde-d'Apt",43.9842,5.4769],["Lagarde-Paréol",44.2287,4.8481],["Lagnes",43.9044,5.1181],["Lamotte-du-Rhône",44.2798,4.6804],["Lapalud",44.3073,4.6821],["Lauris",43.7611,5.3019],["Lioux",43.9782,5.3122],["Loriol-du-Comtat",44.0759,5.0049],["Lourmarin",43.7785,5.3625],["Malaucène",44.1804,5.1559],["Malemort-du-Comtat",44.0171,5.1646],["Maubec",43.8384,5.1357],["Mazan",44.0528,5.1333],["Ménerbes",43.8271,5.2172],["Mérindol",43.7648,5.1884],["Méthamis",44.0153,5.2483],["Mirabeau",43.7035,5.6482],["Modène",44.1092,5.1285],["Mondragon",44.2407,4.7326],["Monieux",44.052,5.345],["Monteux",44.033,4.9862],["Morières-lès-Avignon",43.9298,4.9078],["Mormoiron",44.0686,5.1918],["Mornas",44.1997,4.7438],["La Motte-d'Aigues",43.7817,5.5237],["Murs",43.965,5.2432],["Oppède",43.8331,5.1707],["Orange",44.1264,4.8031],["Pernes-les-Fontaines",43.9966,5.0289],["Pertuis",43.6931,5.5345],["Peypin-d'Aigues",43.7962,5.5617],["Piolenc",44.1784,4.7587],["Le Pontet",43.9707,4.8614],["Puget",43.7699,5.2572],["Puyméras",44.2883,5.124],["Puyvert",43.7519,5.3384],["Rasteau",44.2336,4.9794],["Richerenches",44.3555,4.9034],["Roaix",44.2539,5.0125],["Robion",43.8429,5.1066],["La Roque-Alric",44.1458,5.0683],["La Roque-sur-Pernes",43.9782,5.104],["Roussillon",43.8959,5.2906],["Rustrel",43.9315,5.4759],["Sablet",44.1927,4.9962],["Saignon",43.868,5.4405],["Sainte-Cécile-les-Vignes",44.2344,4.8949],["Saint-Christol",44.0216,5.4923],["Saint-Didier",44.0108,5.1093],["Saint-Hippolyte-le-Graveyron",44.1175,5.0775],["Saint-Léger-du-Ventoux",44.2027,5.2749],["Saint-Marcellin-lès-Vaison",44.2368,5.1024],["Saint-Martin-de-Castillon",43.8557,5.5141],["Saint-Martin-de-la-Brasque",43.7656,5.5401],["Saint-Pantaléon",43.8787,5.2154],["Saint-Pierre-de-Vassols",44.0983,5.1463],["Saint-Romain-en-Viennois",44.2625,5.0995],["Saint-Roman-de-Malegarde",44.2642,4.9592],["Saint-Saturnin-lès-Apt",43.961,5.3566],["Saint-Saturnin-lès-Avignon",43.9625,4.9447],["Saint-Trinit",44.0913,5.4747],["Sannes",43.7588,5.4917],["Sarrians",44.1018,4.9541],["Sault",44.0774,5.3892],["Saumane-de-Vaucluse",43.9334,5.1201],["Savoillan",44.1778,5.3707],["Séguret",44.2161,5.0257],["Sérignan-du-Comtat",44.1933,4.8496],["Sivergues",43.8231,5.418],["Sorgues",44.016,4.8555],["Suzette",44.1728,5.0563],["Taillades",43.8312,5.0965],["Le Thor",43.9236,4.9939],["La Tour-d'Aigues",43.7128,5.5682],["Travaillan",44.1912,4.9055],["Uchaux",44.2096,4.7983],["Vacqueyras",44.1444,4.9764],["Vaison-la-Romaine",44.2395,5.0586],["Valréas",44.379,4.9973],["Fontaine-de-Vaucluse",43.9244,5.1307],["Vaugines",43.7738,5.4081],["Vedène",43.9736,4.9055],["Velleron",43.9604,5.0145],["Venasque",43.9866,5.1684],["Viens",43.9,5.5595],["Villars",43.9573,5.434],["Villedieu",44.2899,5.0468],["Villelaure",43.7066,5.4266],["Villes-sur-Auzon",44.0658,5.2572],["Violès",44.1764,4.9511],["Visan",44.3288,4.9477],["Vitrolles-en-Lubéron",43.8068,5.5985]];
+const LIEUX = [
+  ["Aéroport Marseille-Provence", 43.4395, 5.2214, "aeroport mtp marignane mp1 mp2 aeroport marseille"],
+  ["Aéroport Nice-Côte d'Azur", 43.6584, 7.2159, "aeroport nice nce aeroport nice cote azur"],
+  ["Aéroport Toulon-Hyères", 43.0965, 6.1480, "aeroport toulon hyeres tln"],
+  ["Aéroport Cannes-Mandelieu", 43.5425, 6.9529, "aeroport cannes mandelieu"],
+  ["Aéroport d'Avignon-Caumont", 43.9075, 4.9060, "aeroport avignon caumont"],
+  ["Gare TGV Aix-en-Provence", 43.3886, 5.3146, "aix tgv tvg gare tgv aix grande vitesse virgile"],
+  ["Gare TGV Avignon", 43.9178, 4.7807, "avignon tgv tvg grande vitesse"],
+  ["Gare Marseille Saint-Charles", 43.3027, 5.3801, "saint charles st charles gare centrale marseille tgv"],
+  ["Gare d'Aix-en-Provence centre", 43.5250, 5.4454, "aix centre gare aix bus"],
+  ["Gare de Vitrolles", 43.4915, 5.2618, "vitrolles aeropole"],
+  ["Gare d'Avignon Centre", 43.9432, 4.8059, "avignon centre"],
+  ["Gare de Toulon", 43.1254, 5.9306, "toulon centre"],
+  ["Gare de Cannes", 43.5520, 7.0237, "cannes centre"],
+  ["Gare de Nice-Ville", 43.7046, 7.2626, "nice ville centre gare nice"],
+  ["Gare de Manosque", 43.8356, 5.7898, "manosque centre gras"],
+  ["Gare d'Arles", 43.6867, 4.6311, "arles centre"],
+  ["Gare de Pertuis", 43.6947, 5.4953, "pertuis centre"],
+  ["Gare de Salon-de-Provence", 43.6398, 5.0985, "salon centre"],
+  ["Gare de Gap", 44.5626, 6.0849, "gap centre"],
+  ["Gare de Sisteron", 44.2319, 5.9387, "sisteron centre"],
+  ["Gare de Digne-les-Bains", 44.0899, 6.2382, "digne centre"],
+  ["Gare de Draguignan", 43.5378, 6.4649, "draguignan centre"],
+  ["Gare d'Aubagne", 43.2947, 5.5707, "aubagne centre"],
+  ["Gare de Gardanne", 43.4547, 5.4833, "gardanne centre"],
+  ["Port de Marseille (croisières)", 43.3107, 5.3631, "port croisieres joliette terminal maritime marseille"],
+  ["Port de Cassis", 43.2144, 5.5397, "cassis port calanques"],
+  ["Stade Orange Vélodrome", 43.2704, 5.3958, "velodrome stade om marseille"]
+];
+const POINTS = COMMUNES
+  .map(p => ({ nom: p[0], lat: p[1], lon: p[2] }))
+  .concat(LIEUX.map(l => ({ nom: l[0], lat: l[1], lon: l[2], cleExtra: l[3] })));
+
+const $ = id => document.getElementById(id);
+const etat = { moment: "jour", vehicule: "berline" };
+
+/* Normalisation sans accents pour la recherche */
+const norm = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+POINTS.forEach(p => p.cle = norm(p.nom + " " + (p.cleExtra || "")));
+
+/* Autocomplete : communes intégrées + adresses via la BAN (nécessite une connexion internet) */
+function brancher(input, box) {
+  let sel = -1, timer = null, req = 0;
+  function affiche(res) {
+    box._res = res; sel = -1;
+    box.innerHTML = "";
+    res.forEach(p => {
+      const d = document.createElement("div");
+      d.textContent = p.nom;
+      d.addEventListener("mousedown", e => { e.preventDefault(); choisir(); });
+      box.appendChild(d);
+    });
+    box.style.display = res.length ? "block" : "none";
+  }
+  function choisir() {
+    const res = box._res || [];
+    if (!res.length) return;
+    const p = res[Math.max(sel, 0)];
+    input.value = p.nom; input._point = p;
+    box.style.display = "none"; calculer();
+  }
+  input._choisir = choisir;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const q = norm(input.value.trim());
+    if (q.length < 2) { box.style.display = "none"; return; }
+    const communes = POINTS.filter(p => p.cle.startsWith(q))
+      .concat(POINTS.filter(p => !p.cle.startsWith(q) && p.cle.includes(q))).slice(0, 20);
+    affiche(communes);
+    if (q.length >= 3) {
+      timer = setTimeout(() => {
+        const n = ++req;
+        fetch("https://api-adresse.data.gouv.fr/search/?q=" + encodeURIComponent(input.value.trim()) + "&limit=8")
+          .then(r => r.ok ? r.json() : null)
+          .then(j => {
+            if (n !== req || !j) return;
+            const list = communes.slice(0, 6);
+            j.features.forEach(f => {
+              const lon = f.geometry.coordinates[0], lat = f.geometry.coordinates[1];
+              list.push({ nom: f.properties.label, lat: lat, lon: lon });
+            });
+            if (input.value.trim().length >= 2) affiche(list);
+          }).catch(() => {});
+      }, 250);
+    }
+  });
+  input.addEventListener("keydown", e => {
+    const items = box.querySelectorAll("div");
+    if (!items.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(sel + 1, items.length - 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(sel - 1, 0); }
+    else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); if (sel < 0) sel = 0; choisir(); return; }
+    else return;
+    items.forEach((it, i) => it.classList.toggle("sel", i === sel));
+  });
+  input.addEventListener("blur", () => setTimeout(() => box.style.display = "none", 150));
+}
+brancher($("depart"), $("sug-depart"));
+brancher($("arrivee"), $("sug-arrivee"));
+
+/* Options */
+document.querySelectorAll(".opt").forEach(o => {
+  o.addEventListener("click", () => {
+    document.querySelectorAll('.opt[data-grp="' + o.dataset.grp + '"]').forEach(x => x.classList.remove("on"));
+    o.classList.add("on");
+    etat[o.dataset.grp] = o.dataset.val;
+    calculer();
+  });
+});
+
+/* Facteur routier : détour important sur les petites distances, quasi direct sur autoroute */
+function facteurRoutier(kmVol) {
+  if (kmVol <= 40) return 1.3;
+  if (kmVol <= 100) return 1.2;
+  return 1.1;
+}
+
+/* Distance haversine (km) */
+function distanceKm(a, b) {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+/* Calcul */
+function calculer() {
+  const a = $("depart")._point, b = $("arrivee")._point;
+  const err = $("erreur"), res = $("resultat");
+  if (!a || !b) {
+    res.style.display = "none";
+    err.textContent = (!a && !b) ? "Choisis le départ et l'arrivée." : (!a ? "Choisis la ville de départ." : "Choisis la ville d'arrivée.");
+    if (!$("depart").value && !$("arrivee").value) err.textContent = "Choisis le départ et l'arrivée pour voir le tarif.";
+    return;
+  }
+  err.textContent = ""; res.style.display = "block";
+  const kmVol = distanceKm(a, b);
+  const km = Math.max(Math.round(kmVol * facteurRoutier(kmVol)), 2);
+  let prix = TARIFS.priseEnCharge + km * TARIFS.prixKmJour;
+  if (etat.moment === "nuit") prix *= TARIFS.majorationNuit;
+  if (etat.vehicule === "van") prix *= TARIFS.majorationVan;
+  prix = Math.max(prix, km < TARIFS.seuilPetiteCourse ? TARIFS.courseMin : 0);
+  const parts = [ TARIFS.priseEnCharge.toFixed(2) + " € de prise en charge", km + " km × " + TARIFS.prixKmJour.toFixed(2) + " €" ];
+  if (etat.moment === "nuit") parts.push("majoration nuit +25 %");
+  if (etat.vehicule === "van") parts.push("van +50 %");
+  if (km < TARIFS.seuilPetiteCourse && prix === TARIFS.courseMin) parts.push("minimum petite course");
+  $("prix").textContent = Math.round(prix) + " €";
+  $("detail").innerHTML = "<strong>" + a.nom + " → " + b.nom + "</strong><br />" + parts.join(" · ");
+  const arrondi = Math.round(prix / 5) * 5;
+  $("conseille").textContent = "Tarif conseillé au client : " + arrondi + " €";
+}
+calculer();
+</script>
+</body>
+</html>
