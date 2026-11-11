@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dispatch – VTC PACA</title>
+<style>
+  :root { --nuit: #0d1b2e; --nuit2: #14263f; --or: #d4a94e; --or-clair: #eecf8a; --ivoire: #f7f3ea; --texte: #e9e4d8; --rouge: #b23a3a; --vert: #3a7d44; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", serif; background: linear-gradient(165deg, var(--nuit), var(--nuit2) 65%, #1b3350); min-height: 100vh; color: var(--texte); padding: 20px 14px; }
+  .app { max-width: 880px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 16px; }
+  .marque { font-size: 26px; font-weight: bold; letter-spacing: 4px; color: var(--ivoire); }
+  .marque span { color: var(--or); }
+  .onglets { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .onglet { padding: 9px 18px; border-radius: 20px; border: 1px solid rgba(212,169,78,.4); cursor: pointer; font-size: 14px; color: var(--texte); background: transparent; font-family: inherit; }
+  .onglet.on { background: var(--or); color: var(--nuit); font-weight: bold; border-color: var(--or); }
+  .carte { background: rgba(255,255,255,.055); border: 1px solid rgba(212,169,78,.35); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .carte h3 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--or-clair); margin-bottom: 12px; }
+  label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--or-clair); margin-bottom: 3px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; font-size: 14px; font-family: inherit; background: rgba(0,0,0,.25); color: var(--ivoire); border: 1px solid rgba(212,169,78,.4); border-radius: 8px; outline: none; }
+  input:focus, select:focus { border-color: var(--or); }
+  select option { background: #14263f; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  button.btn { font-family: inherit; cursor: pointer; border: none; border-radius: 20px; padding: 10px 20px; font-size: 14px; font-weight: bold; }
+  .btn-or { background: var(--or); color: var(--nuit); }
+  .btn-wa { background: #25d366; color: #06331a; }
+  .btn-rouge { background: var(--rouge); color: #fff; font-size: 12px; padding: 6px 12px; }
+  .btn-discret { background: rgba(255,255,255,.12); color: var(--texte); font-size: 12px; padding: 6px 12px; }
+  .liste-item { background: rgba(0,0,0,.2); border: 1px solid rgba(212,169,78,.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; font-size: 14px; line-height: 1.55; }
+  .liste-item .titre { font-size: 15px; color: var(--ivoire); font-weight: bold; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+  .b-plan { background: #6b5b1e; color: var(--ivoire); }
+  .b-term { background: var(--vert); color: #fff; }
+  .b-paye { background: var(--or); color: var(--nuit); }
+  .b-ok { background: var(--vert); color: #fff; }
+  .b-biento { background: #a06b1c; color: #fff; }
+  .b-exp { background: var(--rouge); color: #fff; }
+  .doc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,.15); border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 13px; }
+  .net { color: var(--or-clair); font-weight: bold; }
+  .mini-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .total-ligne { display: flex; justify-content: space-between; font-size: 15px; padding: 5px 0; }
+  .total-grand { font-size: 18px; font-weight: bold; color: var(--or-clair); border-top: 1px solid rgba(212,169,78,.4); margin-top: 6px; padding-top: 8px; }
+  .mention { text-align: center; font-size: 10px; color: rgba(233,228,216,.45); margin-top: 14px; }
+  .releve { display: none; background: #fff; color: #333; padding: 30px; }
+  .releve h2 { font-size: 20px; color: var(--nuit); margin-bottom: 2px; }
+  .releve .societe { font-size: 12px; color: #555; line-height: 1.5; }
+  .releve table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 18px; }
+  .releve th { background: var(--nuit); color: #fff; text-align: left; padding: 7px 8px; }
+  .releve td { padding: 6px 8px; border-bottom: 1px solid #e2ddd0; }
+  .releve th:last-child, .releve td:last-child { text-align: right; }
+  .releve .totaux td { font-weight: bold; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .app, .onglets, .mention { display: none !important; }
+    .releve { display: block !important; }
+    @page { size: A4; margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="marque">VTC <span>PACA</span> · Dispatch</div>
+    <div style="font-style:italic;font-size:12px;color:var(--or-clair);margin-top:4px">Gestion des chauffeurs et des courses</div>
+  </header>
+
+  <div class="onglets">
+    <button class="onglet on" id="t-courses">🚗 Courses</button>
+    <button class="onglet" id="t-chauffeurs">👨‍✈️ Chauffeurs</button>
+    <button class="onglet" id="t-comptes">💰 Comptes</button>
+    <button class="onglet" id="t-reglages">⚙️ Réglages</button>
+  </div>
+
+  <div id="contenu"></div>
+
+  <div class="mention">Données enregistrées uniquement sur cet appareil · Pense à exporter une sauvegarde régulièrement dans Réglages · EURL VTCPACA.CHRISTOPHE</div>
+</div>
+
+<div class="releve" id="releve"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const eur = n => (Math.round(n * 100) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+
+const DEF = { seuil: 100, comPetite: 12, comGrosse: 18 };
+let d = { chauffeurs: [], courses: [], reglages: { ...DEF }, serie: 1 };
+let docsOuvert = null;
+const pendingFiles = {};
+const TYPES_PAPIERS = ["Carte VTC", "Assurance pro", "Carte grise", "Contrôle technique", "Permis de conduire", "Vigilance URSSAF", "RIB", "Statuts / RCS", "Contrat partenaire", "Autre"];
+const URL_ESPACE = "https://vtcpacachristophe-gif.github.io/calcuteur-vtcpaca/espace-chauffeur.html";
+function b64(s) { return btoa(String.fromCharCode.apply(null, new TextEncoder().encode(s))); }
+
+function charger() {
+  try {
+    const s = JSON.parse(localStorage.getItem("dispatch-vtc") || "null");
+    if (s) d = { chauffeurs: s.chauffeurs || [], courses: s.courses || [], reglages: { ...DEF, ...(s.reglages || {}) }, serie: s.serie || 1 };
+  } catch (e) {}
+}
+function sauver() { localStorage.setItem("dispatch-vtc", JSON.stringify(d)); }
+const uid = () => "c" + (d.serie++);
+
+function comPct(prix) { return prix <= d.reglages.seuil ? d.reglages.comPetite : d.reglages.comGrosse; }
+function calc(prix) { const pct = comPct(prix); return { pct, com: prix * pct / 100, net: prix - prix * pct / 100 }; }
+const chauffeur = id => d.chauffeurs.find(c => c.id === id);
+
+/* ===== ONGLETS ===== */
+let onglet = "courses";
+["courses", "chauffeurs", "comptes", "reglages"].forEach(t => $("t-" + t).addEventListener("click", () => {
+  onglet = t;
+  document.querySelectorAll(".onglet").forEach(o => o.classList.remove("on"));
+  $("t-" + t).classList.add("on");
+  render();
+}));
+
+function render() {
+  const c = $("contenu");
+  if (onglet === "courses") c.innerHTML = vueCourses();
+  if (onglet === "chauffeurs") c.innerHTML = vueChauffeurs();
+  if (onglet === "comptes") c.innerHTML = vueComptes();
+  if (onglet === "reglages") c.innerHTML = vueReglages();
+  brancher();
+}
+
+/* ===== VUES ===== */
+function selChauffeurs(v) {
+  return '<option value="">— À attribuer —</option>' +
+    d.chauffeurs.map(x => '<option value="' + x.id + '"' + (x.id === v ? " selected" : "") + ">" + x.nom + "</option>").join("");
+}
+
+function vueCourses() {
+  return '<div class="carte"><h3>➕ Nouvelle course</h3><div class="grille">' +
+    '<div><label>Date</label><input id="n-date" type="date" /></div>' +
+    '<div><label>Heure</label><input id="n-heure" type="time" /></div>' +
+    '<div><label>Client</label><input id="n-client" placeholder="Nom du client" /></div>' +
+    '<div><label>Tél client</label><input id="n-tel" placeholder="06…" /></div>' +
+    '<div><label>Départ</label><input id="n-depart" placeholder="Aix-en-Provence" /></div>' +
+    '<div><label>Arrivée</label><input id="n-arrivee" placeholder="Aéroport Marseille" /></div>' +
+    '<div><label>Prix TTC facturé (€)</label><input id="n-prix" type="number" min="0" step="0.01" placeholder="Ex : 51" /></div>' +
+    '<div><label>Chauffeur</label><select id="n-ch">' + selChauffeurs("") + '</select></div>' +
+    '</div><div class="mini-actions" style="margin-top:12px"><button class="btn btn-or" id="n-add">Ajouter la course</button></div></div>' +
+    '<div class="carte"><h3>📋 Courses (' + d.courses.length + ')</h3>' +
+    (d.courses.length ? d.courses.slice().reverse().map(vueCourse).join("") : '<i>Aucune course pour le moment.</i>') +
+    '</div>';
+}
+
+function vueCourse(c) {
+  const ch = chauffeur(c.chId);
+  const k = calc(c.prix);
+  return '<div class="liste-item"><span class="titre">' + c.date + (c.heure ? " · " + c.heure : "") + '</span> · ' + c.client +
+    '<br />' + c.depart + " → " + c.arrivee +
+    '<br />Prix : <b>' + eur(c.prix) + '</b> · Com ' + k.pct + '% : ' + eur(k.com) + ' · <span class="net">Net chauffeur : ' + eur(k.net) + '</span>' +
+    (ch ? '<br />Chauffeur : <b>' + ch.nom + '</b>' : '<br /><i>Non attribuée</i>') +
+    ' <span class="badge ' + (c.paye ? "b-paye" : (c.statut === "terminee" ? "b-term" : "b-plan")) + '">' +
+    (c.paye ? "PAYÉE" : (c.statut === "terminee" ? "TERMINÉE" : "PLANIFIÉE")) + '</span>' +
+    '<div class="mini-actions">' +
+    (ch ? '<button class="btn btn-wa" data-wa="' + c.id + '">📲 WhatsApp</button>' : "") +
+    '<button class="btn btn-discret" data-statut="' + c.id + '">' + (c.statut === "terminee" ? "↩︎ Replanifier" : "✓ Terminée") + '</button>' +
+    (c.statut === "terminee" && !c.paye ? '<button class="btn btn-discret" data-paye="' + c.id + '">💶 Marquer payée</button>' : "") +
+    '<button class="btn btn-rouge" data-suppr="' + c.id + '">✕</button>' +
+    '</div></div>';
+}
+
+function vueChauffeurs() {
+  return '<div class="carte"><h3>➕ Nouveau chauffeur</h3><div class="grille">' +
+    '<div><label>Nom</label><input id="h-nom" placeholder="Prénom Nom" /></div>' +
+    '<div><label>Téléphone WhatsApp</label><input id="h-tel" placeholder="06 12 34 56 78" /></div>' +
+    '<div><label>Règlement</label><select id="h-reg"><option>Il me facture</option><option>Virement direct</option><option>Espèces</option><option>Autre</option></select></div>' +
+    '<div><label>Notes</label><input id="h-notes" placeholder="Véhicule, préférences…" /></div>' +
+    '</div><div class="mini-actions" style="margin-top:12px"><button class="btn btn-or" id="h-add">Ajouter le chauffeur</button></div></div>' +
+    '<div class="carte"><h3>👨‍✈️ Chauffeurs (' + d.chauffeurs.length + ')</h3>' +
+    (d.chauffeurs.length ? d.chauffeurs.map(c => {
+      const du = totalDu(c.id);
+      const docs = c.docs || [];
+      const nbExp = docs.filter(x => x.exp && new Date(x.exp) < new Date()).length;
+      return '<div class="liste-item"><span class="titre">' + c.nom + '</span> · ' + c.tel +
+        '<br />Règlement : ' + c.reglement + (c.notes ? ' · ' + c.notes : "") +
+        '<br /><span class="net">Net à payer : ' + eur(du.net) + '</span> (' + du.nb + " course" + (du.nb > 1 ? "s" : "") + " en attente)" +
+        '<div class="mini-actions">' +
+        '<button class="btn btn-discret" data-docs="' + c.id + '">📄 Papiers (' + docs.length + ')' + (nbExp ? ' <span class="badge b-exp">' + nbExp + ' expiré' + (nbExp > 1 ? "s" : "") + '</span>' : "") + '</button>' +
+        '<button class="btn btn-rouge" data-supprch="' + c.id + '">✕ Retirer</button></div>' +
+        (docsOuvert === c.id ?
+          '<div style="margin-top:10px;border-top:1px solid rgba(212,169,78,.3);padding-top:10px">' +
+          (docs.length ? docs.map((x, i) => {
+            let badge = "";
+            if (x.exp) {
+              const jours = Math.round((new Date(x.exp) - new Date()) / 86400000);
+              badge = jours < 0 ? '<span class="badge b-exp">expiré le ' + new Date(x.exp).toLocaleDateString("fr-FR") + '</span>'
+                : jours <= 60 ? '<span class="badge b-biento">expire dans ' + jours + ' j</span>'
+                : '<span class="badge b-ok">valide jusqu\'au ' + new Date(x.exp).toLocaleDateString("fr-FR") + '</span>';
+            }
+            return '<div class="doc-row"><b>' + x.nom + '</b> ' + badge +
+              (x.fichData ? ' <a class="btn btn-discret" href="' + x.fichData + '" target="_blank" download="' + (x.fichNom || "papier") + '">👁️ Ouvrir</a>' : ' <i>(aucun fichier joint)</i>') +
+              '<button class="btn btn-rouge" data-supprdoc="' + c.id + ':' + i + '">✕</button></div>';
+          }).join("") : '<i style="font-size:13px">Aucun papier enregistré.</i>') +
+          '<div class="grille" style="margin-top:12px">' +
+          '<div><label>Papier</label><select id="dn-' + c.id + '">' + TYPES_PAPIERS.map(t => '<option>' + t + '</option>').join("") + '</select></div>' +
+          '<div><label>Expiration (optionnel)</label><input id="de-' + c.id + '" type="date" /></div>' +
+          '<div><label>Fichier joint (PDF ou image, max 400 Ko)</label><input id="df-' + c.id + '" type="file" accept="application/pdf,image/*" /></div>' +
+          '</div><div class="mini-actions" style="margin-top:10px"><button class="btn btn-or" data-adddoc="' + c.id + '">+ Ajouter le papier</button></div>' +
+          '</div>' : "") +
+        '</div>';
+    }).join("") : '<i>Aucun chauffeur. Ajoute tes partenaires pour leur confier des courses.</i>') +
+    '</div>';
+}
+
+function vueComptes() {
+  if (!d.chauffeurs.length) return '<div class="carte"><i>Ajoute d\'abord des chauffeurs.</i></div>';
+  const cartes = d.chauffeurs.map(c => {
+    const du = totalDu(c.id);
+    const coursesImpayees = d.courses.filter(x => x.chId === c.id && x.statut === "terminee" && !x.paye);
+    return '<div class="carte"><h3>💰 ' + c.nom + '</h3>' +
+      '<div class="total-ligne"><span>Courses terminées non réglées</span><b>' + coursesImpayees.length + '</b></div>' +
+      '<div class="total-ligne"><span>Chiffre brut correspondant</span><b>' + eur(du.brut) + '</b></div>' +
+      '<div class="total-ligne"><span>Ma commission</span><b>' + eur(du.com) + '</b></div>' +
+      '<div class="total-ligne total-grand"><span>Net dû au chauffeur</span><span>' + eur(du.net) + '</span></div>' +
+      '<div class="mini-actions">' +
+      '<button class="btn btn-or" data-releve="' + c.id + '">🧾 Relevé imprimable</button>' +
+      (coursesImpayees.length ? '<button class="btn btn-discret" data-sold="' + c.id + '">✓ Tout marquer réglé</button>' : "") +
+      '</div></div>';
+  }).join("");
+  const totalTous = d.chauffeurs.reduce((s, c) => s + totalDu(c.id).net, 0);
+  return cartes + '<div class="carte"><div class="total-ligne total-grand"><span>Total net dû (tous chauffeurs)</span><span>' + eur(totalTous) + '</span></div></div>';
+}
+
+function vueReglages() {
+  const r = d.reglages;
+  return '<div class="carte"><h3>⚙️ Commission</h3><div class="grille">' +
+    '<div><label>Seuil petite course (€ TTC)</label><input id="r-seuil" type="number" value="' + r.seuil + '" /></div>' +
+    '<div><label>Com petite course (%)</label><input id="r-petite" type="number" step="0.1" value="' + r.comPetite + '" /></div>' +
+    '<div><label>Com grosse course (%)</label><input id="r-grosse" type="number" step="0.1" value="' + r.comGrosse + '" /></div>' +
+    '</div><div class="mini-actions" style="margin-top:12px"><button class="btn btn-or" id="r-save">Enregistrer</button></div>' +
+    '<p style="font-size:12px;margin-top:10px;color:var(--or-clair)">Règle actuelle : course ≤ ' + r.seuil + ' € → ' + r.comPetite + ' % de commission, au-delà → ' + r.comGrosse + ' %.</p></div>' +
+    '<div class="carte"><h3>💾 Sauvegarde</h3><div class="mini-actions">' +
+    '<button class="btn btn-discret" id="r-export">⬇️ Exporter la sauvegarde</button>' +
+    '<label class="btn btn-discret" style="cursor:pointer">⬆️ Importer<input id="r-import" type="file" accept=".json" style="display:none" /></label>' +
+    '<button class="btn btn-rouge" id="r-reset">🗑️ Tout effacer</button>' +
+    '</div></div>';
+}
+
+function totalDu(chId) {
+  const t = { nb: 0, brut: 0, com: 0, net: 0 };
+  d.courses.forEach(c => {
+    if (c.chId === chId && c.statut === "terminee" && !c.paye) {
+      const k = calc(c.prix);
+      t.nb++; t.brut += c.prix; t.com += k.com; t.net += k.net;
+    }
+  });
+  return t;
+}
+
+/* ===== ACTIONS ===== */
+function brancher() {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  on("n-add", "click", () => {
+    const prix = parseFloat($("n-prix").value);
+    if (!prix || !$("n-client").value.trim() || !$("n-depart").value.trim()) { alert("Renseigne au minimum client, départ et prix."); return; }
+    d.courses.push({ id: uid(), date: $("n-date").value || new Date().toISOString().slice(0, 10), heure: $("n-heure").value, client: $("n-client").value.trim(), tel: $("n-tel").value.trim(), depart: $("n-depart").value.trim(), arrivee: $("n-arrivee").value.trim(), prix: prix, chId: $("n-ch").value, statut: "planifiee", paye: false });
+    sauver(); render();
+  });
+  on("h-add", "click", () => {
+    if (!$("h-nom").value.trim()) { alert("Indique au moins le nom."); return; }
+    d.chauffeurs.push({ id: uid(), nom: $("h-nom").value.trim(), tel: ($("h-tel").value || "").trim(), reglement: $("h-reg").value, notes: $("h-notes").value.trim() });
+    sauver(); render();
+  });
+  on("r-save", "click", () => {
+    d.reglages.seuil = parseFloat($("r-seuil").value) || DEF.seuil;
+    d.reglages.comPetite = parseFloat($("r-petite").value) || DEF.comPetite;
+    d.reglages.comGrosse = parseFloat($("r-grosse").value) || DEF.comGrosse;
+    sauver(); render();
+  });
+  on("r-export", "click", () => {
+    const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "dispatch-vtc-sauvegarde.json";
+    a.click();
+  });
+  on("r-import", "change", e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { try { const j = JSON.parse(rd.result); d = j; sauver(); render(); alert("Sauvegarde importée."); } catch (err) { alert("Fichier invalide."); } };
+    rd.readAsText(f);
+  });
+  on("r-reset", "click", () => {
+    if (confirm("Effacer TOUTES les données (chauffeurs, courses, réglages) ?")) { d = { chauffeurs: [], courses: [], reglages: { ...DEF }, serie: 1 }; sauver(); render(); }
+  });
+
+  document.querySelectorAll("[data-wa]").forEach(b => b.addEventListener("click", () => {
+    const c = d.courses.find(x => x.id === b.dataset.wa);
+    const ch = chauffeur(c.chId);
+    const k = calc(c.prix);
+    let tel = (ch.tel || "").replace(/[^0-9+]/g, "").replace(/^\+/, "");
+    if (tel.startsWith("0")) tel = "33" + tel.slice(1);
+    const msg = "🚗 *Nouvelle course à ton nom*\n" +
+      "📅 " + c.date + (c.heure ? " à " + c.heure : "") + "\n" +
+      "👤 " + c.client + (c.tel ? " (" + c.tel + ")" : "") + "\n" +
+      "📍 Départ : " + c.depart + "\n" +
+      "🏁 Arrivée : " + c.arrivee + "\n" +
+      "💰 *Ton net (après commission) : " + eur(k.net) + "*\n" +
+      "📲 Ajoute-la à ton Espace Chauffeur : " + URL_ESPACE + "?c=" + b64(JSON.stringify({ date: c.date, heure: c.heure, client: c.client, tel: c.tel, depart: c.depart, arrivee: c.arrivee, net: k.net })) + "\n" +
+      "Merci de me confirmer ASAP. Bonne route ! 🙏";
+    window.open("https://wa.me/" + tel + "?text=" + encodeURIComponent(msg), "_blank");
+  }));
+  document.querySelectorAll("[data-statut]").forEach(b => b.addEventListener("click", () => {
+    const c = d.courses.find(x => x.id === b.dataset.statut);
+    c.statut = c.statut === "terminee" ? "planifiee" : "terminee";
+    sauver(); render();
+  }));
+  document.querySelectorAll("[data-paye]").forEach(b => b.addEventListener("click", () => {
+    d.courses.find(x => x.id === b.dataset.paye).paye = true;
+    sauver(); render();
+  }));
+  document.querySelectorAll("[data-sold]").forEach(b => b.addEventListener("click", () => {
+    d.courses.forEach(c => { if (c.chId === b.dataset.sold && c.statut === "terminee" && !c.paye) c.paye = true; });
+    sauver(); render();
+  }));
+  document.querySelectorAll("[data-suppr]").forEach(b => b.addEventListener("click", () => {
+    if (confirm("Supprimer cette course ?")) { d.courses = d.courses.filter(c => c.id !== b.dataset.suppr); sauver(); render(); }
+  }));
+  document.querySelectorAll("[data-supprch]").forEach(b => b.addEventListener("click", () => {
+    if (confirm("Retirer ce chauffeur ? Ses courses passées restent enregistrées.")) { d.chauffeurs = d.chauffeurs.filter(c => c.id !== b.dataset.supprch); sauver(); render(); }
+  }));
+  document.querySelectorAll("[data-docs]").forEach(b => b.addEventListener("click", () => {
+    docsOuvert = docsOuvert === b.dataset.docs ? null : b.dataset.docs;
+    render();
+  }));
+  document.querySelectorAll("input[type=file][id^='df-']").forEach(inp => inp.addEventListener("change", () => {
+    const idCh = inp.id.slice(3);
+    const f = inp.files[0];
+    if (!f) return;
+    if (f.size > 409600) { alert("Fichier trop lourd (" + Math.round(f.size / 1024) + " Ko). Max 400 Ko pour rester dans la mémoire du téléphone : réduis-le ou garde-le papier ailleurs."); inp.value = ""; return; }
+    const rd = new FileReader();
+    rd.onload = () => { pendingFiles[idCh] = { fichNom: f.name, fichData: rd.result }; };
+    rd.readAsDataURL(f);
+  }));
+  document.querySelectorAll("[data-adddoc]").forEach(b => b.addEventListener("click", () => {
+    const ch = chauffeur(b.dataset.adddoc);
+    const pf = pendingFiles[ch.id] || {};
+    ch.docs = ch.docs || [];
+    ch.docs.push({ nom: $("dn-" + ch.id).value, exp: $("de-" + ch.id).value || "", fichNom: pf.fichNom || "", fichData: pf.fichData || "" });
+    delete pendingFiles[ch.id];
+    sauver(); render();
+  }));
+  document.querySelectorAll("[data-supprdoc]").forEach(b => b.addEventListener("click", () => {
+    const [idCh, i] = b.dataset.supprdoc.split(":");
+    const ch = chauffeur(idCh);
+    if (confirm("Supprimer ce papier ?")) { ch.docs.splice(parseInt(i, 10), 1); sauver(); render(); }
+  }));
+  document.querySelectorAll("[data-releve]").forEach(b => b.addEventListener("click", () => {
+    const ch = chauffeur(b.dataset.releve);
+    const courses = d.courses.filter(x => x.chId === ch.id && x.statut === "terminee" && !x.paye);
+    const k = courses.map(c => ({ c, k: calc(c.prix) }));
+    const brut = k.reduce((s, x) => s + x.c.prix, 0);
+    const com = k.reduce((s, x) => s + x.k.com, 0);
+    const net = k.reduce((s, x) => s + x.k.net, 0);
+    $("releve").innerHTML =
+      '<h2>Relevé de courses</h2>' +
+      '<div class="societe">EURL VTCPACA.CHRISTOPHE · Aix-en-Provence<br />Chauffeur : <b>' + ch.nom + '</b> · ' + ch.tel + ' · Règlement : ' + ch.reglement + '<br />Édité le ' + new Date().toLocaleDateString("fr-FR") + ' · Uniquement les courses non réglées</div>' +
+      '<table><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Prix TTC</th><th>Com</th><th>Net</th></tr>' +
+      k.map(x => "<tr><td>" + x.c.date + "</td><td>" + x.c.client + "</td><td>" + x.c.depart + " → " + x.c.arrivee + "</td><td>" + eur(x.c.prix) + "</td><td>" + eur(x.k.com) + "</td><td>" + eur(x.k.net) + "</td></tr>").join("") +
+      '<tr class="totaux"><td colspan="3">Totaux</td><td>' + eur(brut) + '</td><td>' + eur(com) + '</td><td>' + eur(net) + '</td></tr>' +
+      '</table>' +
+      '<p style="margin-top:26px;font-size:12px">Net à régler au chauffeur : <b>' + eur(net) + '</b></p>' +
+      '<div style="display:flex;justify-content:space-between;margin-top:50px;font-size:12px"><div>Signature chauffeur</div><div>Cachet société</div></div>';
+    window.print();
+  }));
+}
+
+charger();
+render();
+</script>
+</body>
+</html>
