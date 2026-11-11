@@ -1,0 +1,264 @@
+
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Espace Chauffeur – Mes papiers VTC</title>
+<style>
+  :root { --nuit: #0d1b2e; --nuit2: #14263f; --or: #d4a94e; --or-clair: #eecf8a; --ivoire: #f7f3ea; --texte: #e9e4d8; --rouge: #b23a3a; --vert: #3a7d44; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", serif; background: linear-gradient(165deg, var(--nuit), var(--nuit2) 65%, #1b3350); min-height: 100vh; color: var(--texte); padding: 20px 14px; }
+  .app { max-width: 720px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 16px; }
+  .marque { font-size: 24px; font-weight: bold; letter-spacing: 3px; color: var(--ivoire); }
+  .marque span { color: var(--or); }
+  .sous { font-style: italic; font-size: 12px; color: var(--or-clair); margin-top: 4px; }
+  .carte { background: rgba(255,255,255,.055); border: 1px solid rgba(212,169,78,.35); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .carte h3 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--or-clair); margin-bottom: 12px; }
+  label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--or-clair); margin-bottom: 3px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; font-size: 14px; font-family: inherit; background: rgba(0,0,0,.25); color: var(--ivoire); border: 1px solid rgba(212,169,78,.4); border-radius: 8px; outline: none; }
+  input:focus, select:focus { border-color: var(--or); }
+  .grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  button.btn { font-family: inherit; cursor: pointer; border: none; border-radius: 20px; padding: 10px 20px; font-size: 14px; font-weight: bold; }
+  .btn-or { background: var(--or); color: var(--nuit); }
+  .btn-wa { background: #25d366; color: #06331a; }
+  .btn-mail { background: #4a7dbd; color: #fff; }
+  .btn-rouge { background: var(--rouge); color: #fff; font-size: 12px; padding: 6px 12px; }
+  .btn-discret { background: rgba(255,255,255,.12); color: var(--texte); font-size: 12px; padding: 6px 12px; text-decoration: none; }
+  .doc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: rgba(0,0,0,.15); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 14px; }
+  .doc-nom { font-weight: bold; color: var(--ivoire); }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+  .b-ok { background: var(--vert); color: #fff; }
+  .b-biento { background: #a06b1c; color: #fff; }
+  .b-exp { background: var(--rouge); color: #fff; }
+  .mini-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .mention { text-align: center; font-size: 10px; color: rgba(233,228,216,.45); margin-top: 14px; line-height: 1.6; }
+  @media (max-width: 600px) { .doc-row { font-size: 13px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="marque">Espace <span>Chauffeur</span></div>
+    <div class="sous">Tes papiers administratifs, toujours dans ta poche</div>
+  </header>
+
+  <div class="carte">
+    <h3>👤 Ma fiche</h3>
+    <div class="grille">
+      <div><label>Nom et prénom</label><input id="f-nom" placeholder="Ex : Jean Dupont" /></div>
+      <div><label>Téléphone</label><input id="f-tel" placeholder="06 12 34 56 78" /></div>
+      <div><label>Véhicule</label><input id="f-vehicule" placeholder="Ex : Mercedes Classe E" /></div>
+      <div><label>Immatriculation</label><input id="f-immat" placeholder="AB-123-CD" /></div>
+    </div>
+  </div>
+
+  <div class="carte">
+    <h3>📄 Ajouter un papier</h3>
+    <div class="grille">
+      <div><label>Type de papier</label><select id="a-type"></select></div>
+      <div><label>Numéro / précisions (optionnel)</label><input id="a-num" placeholder="Ex : n° carte, macaron T2…" /></div>
+      <div><label>Date d'expiration (optionnel)</label><input id="a-exp" type="date" /></div>
+      <div><label>Photo ou fichier (PDF)</label><input id="a-fichier" type="file" accept="image/*,application/pdf" /></div>
+    </div>
+    <div class="mini-actions"><button class="btn btn-or" id="a-add">+ Enregistrer le papier</button></div>
+    <p style="font-size:12px;margin-top:10px;color:var(--or-clair)">📷 Astuce : tu peux directement photographier le papier avec la caméra du téléphone (choisir « Appareil photo »). La photo est automatiquement compressée pour rester légère.</p>
+  </div>
+
+  <div class="carte">
+    <h3>🗂️ Mes papiers (<span id="nb-docs">0</span>)</h3>
+    <div id="liste-docs"></div>
+    <div id="alertes" style="margin-top:12px;font-size:13px"></div>
+  </div>
+
+  <div class="carte">
+    <h3>🚗 Mes courses reçues</h3>
+    <div id="liste-courses"></div>
+  </div>
+
+  <div class="carte">
+    <h3>📤 Prévenir la société</h3>
+    <p style="font-size:13px;line-height:1.6;margin-bottom:10px">Envoie le récapitulatif de tes papiers à la société, puis joins tes photos/fichiers dans le message. Ton référent pourra les archiver dans ton dossier.</p>
+    <div class="mini-actions">
+      <button class="btn btn-wa" id="env-wa">📲 Par WhatsApp</button>
+      <button class="btn btn-mail" id="env-mail">✉️ Par mail</button>
+    </div>
+  </div>
+
+  <div class="mention">Tes informations et tes fichiers restent stockés uniquement dans ce téléphone, hors ligne.<br />Aucune donnée n'est envoyée sans ton action. · VTC PACA</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const TYPES = ["Carte VTC", "Assurance professionnelle", "Carte grise", "Contrôle technique", "Macarons / accréditations aéroports", "Permis de conduire", "Vigilance URSSAF", "RIB", "Autre"];
+const MAIL_SOCIETE = "vtcpaca.christophe@gmail.com";
+const TEL_WA_SOCIETE = "";
+
+let d = { fiche: { nom: "", tel: "", vehicule: "", immat: "" }, docs: [], courses: [] };
+
+function charger() {
+  try {
+    const s = JSON.parse(localStorage.getItem("espace-chauffeur") || "null");
+    if (s) d = { fiche: s.fiche || { nom: "", tel: "", vehicule: "", immat: "" }, docs: s.docs || [], courses: s.courses || [] };
+  } catch (e) {}
+}
+
+function receptionner() {
+  const p = new URLSearchParams(location.search).get("c");
+  if (!p) return false;
+  try {
+    const json = new TextDecoder().decode(Uint8Array.from(atob(p), x => x.charCodeAt(0)));
+    const c = JSON.parse(json);
+    if (!d.courses.some(x => x.date === c.date && x.heure === c.heure && x.depart === c.depart && x.arrivee === c.arrivee)) {
+      c.statut = "recue";
+      d.courses.unshift(c);
+      sauver();
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+function sauver() {
+  localStorage.setItem("espace-chauffeur", JSON.stringify(d));
+  localStorage.setItem("wa-dispatch", localStorage.getItem("wa-dispatch") || "");
+}
+
+function badgeExp(exp) {
+  if (!exp) return "";
+  const jours = Math.round((new Date(exp) - new Date()) / 86400000);
+  if (jours < 0) return '<span class="badge b-exp">expiré le ' + new Date(exp).toLocaleDateString("fr-FR") + "</span>";
+  if (jours <= 60) return '<span class="badge b-biento">expire dans ' + jours + " j</span>";
+  return '<span class="badge b-ok">valide jusqu\'au ' + new Date(exp).toLocaleDateString("fr-FR") + "</span>";
+}
+
+function render() {
+  const l = $("liste-docs");
+  $("nb-docs").textContent = d.docs.length;
+  l.innerHTML = d.docs.length ? d.docs.map((x, i) =>
+    '<div class="doc-row"><span class="doc-nom">' + x.type + "</span>" +
+    (x.num ? " · " + x.num : "") + " " + badgeExp(x.exp) +
+    (x.fichData ? ' <a class="btn btn-discret" href="' + x.fichData + '" target="_blank" download="papier-' + i + '">👁️ Voir</a>' : "") +
+    '<button class="btn btn-rouge" data-suppr="' + i + '">✕</button></div>'
+  ).join("") : "<i style='font-size:13px'>Aucun papier enregistré pour le moment.</i>";
+  const problemes = d.docs.filter(x => x.exp && new Date(x.exp) < new Date()).length;
+  $("alertes").innerHTML = problemes
+    ? '⚠️ <b style="color:#e0906a">' + problemes + ' papier' + (problemes > 1 ? "s" : "") + " expiré" + (problemes > 1 ? "s" : "") + " : pense à le" + (problemes > 1 ? "s" : "") + " renouveler.</b>"
+    : (d.docs.length ? "✅ Aucun papier expiré. Tout est en ordre." : "");
+  const lc = $("liste-courses");
+  lc.innerHTML = d.courses.length ? d.courses.map((c, i) =>
+    '<div class="doc-row"><b>' + c.date + (c.heure ? " · " + c.heure : "") + '</b> · ' + c.client + (c.tel ? " (" + c.tel + ")" : "") +
+    '<br />' + c.depart + " → " + c.arrivee +
+    ' · <span style="color:var(--or-clair);font-weight:bold">Net : ' + (Math.round(c.net * 100) / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2 }) + ' €</span> ' +
+    '<span class="badge ' + (c.statut === "faite" ? "b-ok" : "b-biento") + '">' + (c.statut === "faite" ? "EFFECTUÉE" : "À FAIRE") + "</span>" +
+    (c.statut === "faite" ? "" : '<button class="btn btn-discret" data-faite="' + i + '">✓ Faite</button>') +
+    "</div>"
+  ).join("") : "<i style='font-size:13px'>Aucune course pour le moment. Ton dispatch te les enverra par WhatsApp.</i>";
+}
+
+/* Fiche : sauvegarde au fil de la saisie */
+["f-nom", "f-tel", "f-vehicule", "f-immat"].forEach(id => $(id).addEventListener("input", () => {
+  d.fiche = { nom: $("f-nom").value, tel: $("f-tel").value, vehicule: $("f-vehicule").value, immat: $("f-immat").value };
+  sauver();
+}));
+
+/* Choix du type */
+$("a-type").innerHTML = TYPES.map(t => "<option>" + t + "</option>").join("");
+
+/* Compression automatique des photos */
+function compresserImage(file, cb) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      const k = Math.min(1, MAX / Math.max(img.width, img.height));
+      const cv = document.createElement("canvas");
+      cv.width = Math.round(img.width * k);
+      cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      cb(cv.toDataURL("image/jpeg", 0.72));
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+
+let fichierPret = null;
+$("a-fichier").addEventListener("change", () => {
+  const f = $("a-fichier").files[0];
+  fichierPret = null;
+  if (!f) return;
+  if (f.type.startsWith("image/")) {
+    compresserImage(f, data => { fichierPret = data; alert("Photo prête (" + Math.round(data.length / 1400) + " Ko). Clique sur « Enregistrer le papier »."); });
+  } else {
+    if (f.size > 409600) { alert("Fichier trop lourd (max 400 Ko). Prends plutôt une photo du document."); $("a-fichier").value = ""; return; }
+    const rd = new FileReader();
+    rd.onload = () => { fichierPret = rd.result; alert("Fichier prêt. Clique sur « Enregistrer le papier »."); };
+    rd.readAsDataURL(f);
+  }
+});
+
+$("a-add").addEventListener("click", () => {
+  d.docs.push({ type: $("a-type").value, num: $("a-num").value.trim(), exp: $("a-exp").value, fichData: fichierPret || "" });
+  fichierPret = null;
+  $("a-num").value = ""; $("a-exp").value = ""; $("a-fichier").value = "";
+  sauver(); render();
+});
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-suppr]");
+  if (b && confirm("Supprimer ce papier ?")) { d.docs.splice(parseInt(b.dataset.suppr, 10), 1); sauver(); render(); }
+  const f = e.target.closest("[data-faite]");
+  if (f) { d.courses[parseInt(f.dataset.faite, 10)].statut = "faite"; sauver(); render(); }
+});
+
+/* Récapitulatif */
+function recap() {
+  const f = d.fiche;
+  let t = "Bonjour, voici le récapitulatif de mes papiers.\n\n" +
+    "👤 " + (f.nom || "(nom)") + " · " + (f.vehicule || "(véhicule)") + " · " + (f.immat || "(immat)") + "\n";
+  if (!d.docs.length) return t + "\nAucun papier enregistré pour le moment.";
+  t += "\n" + d.docs.map(x => {
+    let st = "sans date d'expiration";
+    if (x.exp) {
+      const j = Math.round((new Date(x.exp) - new Date()) / 86400000);
+      st = j < 0 ? "EXPIRÉ depuis le " + new Date(x.exp).toLocaleDateString("fr-FR") : "valide jusqu'au " + new Date(x.exp).toLocaleDateString("fr-FR") + (j <= 60 ? " (bientôt !)" : "");
+    }
+    return "• " + x.type + (x.num ? " (" + x.num + ")" : "") + " : " + st + (x.fichData ? " — fichier joint ci-après" : " — PAS ENCORE DE FICHIER");
+  }).join("\n");
+  return t + "\n\nJe joins les photos / fichiers juste après. Merci !";
+}
+
+$("env-wa").addEventListener("click", () => {
+  let tel = localStorage.getItem("wa-dispatch") || TEL_WA_SOCIETE;
+  if (!tel) {
+    const saisie = prompt("Numéro WhatsApp de la société (une seule fois, il sera mémorisé) :", "06 ");
+    if (!saisie) return;
+    tel = saisie;
+    localStorage.setItem("wa-dispatch", tel);
+  }
+  let clean = tel.replace(/[^0-9+]/g, "").replace(/^\+/, "");
+  if (clean.startsWith("0")) clean = "33" + clean.slice(1);
+  window.open("https://wa.me/" + clean + "?text=" + encodeURIComponent(recap()), "_blank");
+});
+
+$("env-mail").addEventListener("click", () => {
+  const sujet = "Mes papiers administratifs – " + (d.fiche.nom || "chauffeur");
+  window.open("mailto:" + MAIL_SOCIETE + "?subject=" + encodeURIComponent(sujet) + "&body=" + encodeURIComponent(recap()), "_blank");
+});
+
+charger();
+const recue = receptionner();
+if (recue) {
+  const b = document.createElement("div");
+  b.textContent = "🚗 Nouvelle course reçue et enregistrée !";
+  b.style.cssText = "background:var(--or);color:var(--nuit);font-weight:bold;text-align:center;padding:12px;border-radius:10px;margin-bottom:14px";
+  document.querySelector(".app").prepend(b);
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+}
+render();
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="2tk5E8UAjcCoaOM1NZTCFA==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
